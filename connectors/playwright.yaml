@@ -1,4 +1,5 @@
-description: A headless Chromium through Microsoft's Playwright MCP, in a container next to ai-os (fresh profile per session, no logins)
+description: A headless Chromium through Microsoft's Playwright MCP, in a container next to ai-os (fresh
+  profile per session, no logins)
 config:
   type: http
   url: http://playwright-mcp:8931/mcp
@@ -8,7 +9,7 @@ shared_fallback: false
 store:
   title: Playwright browser
   category: Web
-  version: "1.0.0"
+  version: 1.0.1
   author: ai-os templates
   license: MIT
   homepage: https://github.com/microsoft/playwright-mcp
@@ -16,4 +17,13 @@ store:
   - browser
   - web
   - docker
-  notes: "The ai-os image has no browser, so Playwright runs in a container of its own, on the\nsame Docker network as ai-os. Add it to the `docker-compose.yml` of ai-os:\n\n```yaml\n  playwright-mcp:\n    image: mcr.microsoft.com/playwright/mcp\n    restart: unless-stopped\n    command: [\"--headless\", \"--isolated\", \"--port\", \"8931\", \"--host\", \"0.0.0.0\",\n              \"--allowed-hosts\", \"*\"]\n```\n\nand run `docker compose up -d`. ai-os reaches it at `http://playwright-mcp:8931/mcp`;\nwith another service name or port, change the `url` on the connector after adding it.\nDo not publish its port: anyone who can reach it can drive the browser.\n"
+  notes: "The ai-os image has no browser, so Playwright runs in a container of its own, on the\nsame Docker\
+    \ network as ai-os. The `docker-compose.yml` from the ai-os quick start has\nit ready: uncomment the\
+    \ `playwright-mcp` service and run `docker compose up -d`.\nWith your own compose file, add:\n\n```yaml\n\
+    \  playwright-mcp:\n    image: mcr.microsoft.com/playwright/mcp:v0.0.86\n    container_name: playwright-mcp\n\
+    \    restart: unless-stopped\n    init: true\n    entrypoint: [\"node\", \"/app/cli.js\"]\n    command:\
+    \ [--headless, --browser=chromium, --no-sandbox, --isolated,\n              --host=0.0.0.0, --port=8931,\
+    \ --allowed-hosts=playwright-mcp:8931]\n```\n\nai-os reaches it at `http://playwright-mcp:8931/mcp`;\
+    \ `getaddrinfo ENOTFOUND\nplaywright-mcp` on the Connectors page means that container is not running\
+    \ or not on\nthe network of ai-os. With another service name or port, change the `url` on the\nconnector\
+    \ and `--allowed-hosts` alike. Do not publish its port: anyone who can reach\nit can drive the browser.\n"
