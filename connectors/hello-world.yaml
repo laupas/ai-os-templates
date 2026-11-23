@@ -1,0 +1,29 @@
+description: 'Hello world, the example code connector: greets, counts and shouts after asking'
+config:
+  code: hello-world
+enabled: true
+sign_in: shared
+shared_fallback: false
+store:
+  title: Hello world (code connector)
+  category: Examples
+  notes: 'The example **code connector**: a small Python MCP server that ai-os runs in its own
+
+    process, with only the environment its manifest declares. It shows everything a code
+
+    connector can do: variables, settings with a form, a Test button, a tool that asks
+
+    for approval every time, and an agent that comes with it (`hello-greeter`).
+
+
+    Installing it copies `code/hello-world/` into your configuration repository. Read
+
+    the code first: it runs inside your installation.
+
+    '
+  variables:
+  - variable: HELLO_TOKEN
+    label: Hello token
+    hint: Any text; the server only says whether it is set.
+    secret: true
+    required: false

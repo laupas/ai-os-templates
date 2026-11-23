@@ -1,0 +1,12 @@
+name: Weekly inbox summary
+prompt: 'Triage my inbox for the past week (newer_than:7d): what still needs a reply from me, with a draft for each, and what I can ignore.'
+cron:
+- 0 17 * * 5
+timezone: Europe/Zurich
+agent: inbox-triage
+enabled: true
+max_lateness_minutes: 120
+store:
+  title: Weekly inbox summary
+  category: Google
+  notes: Fridays at 17:00, by the `inbox-triage` agent (added with it if it is not there yet). Drafts replies, never sends. Runs in `Europe/Zurich` time; change the time zone and the times on the Triggers page after adding it.

@@ -1,0 +1,35 @@
+description: Google Calendar, Google's own MCP server (Developer Preview)
+config:
+  type: http
+  url: https://calendarmcp.googleapis.com/mcp/v1
+  oauth:
+    authorization_endpoint: https://accounts.google.com/o/oauth2/v2/auth
+    token_endpoint: https://oauth2.googleapis.com/token
+    client_id: ${GOOGLE_AIOS_CLIENT_ID}
+    client_secret: ${GOOGLE_AIOS_CLIENT_SECRET}
+    scopes:
+    - https://www.googleapis.com/auth/calendar.calendarlist.readonly
+    - https://www.googleapis.com/auth/calendar.events.freebusy
+    - https://www.googleapis.com/auth/calendar.events.readonly
+    - https://www.googleapis.com/auth/calendar.events
+    params:
+      access_type: offline
+      prompt: consent
+enabled: true
+sign_in: per_user
+shared_fallback: false
+store:
+  title: Google Calendar
+  category: Google
+  notes: "Uses Google's own MCP server (Google Calendar, a Developer Preview). Every user signs in with\ntheir own Google account on the Connectors page.\n\nOne OAuth client serves all the Google connectors; set it up once:\n\n1. In the [Google Cloud console](https://console.cloud.google.com/), create or pick a\n   project and enable the **Google Calendar** API and its MCP server.\n2. **APIs & Services, OAuth consent screen**: an External or Internal app, and add\n   yourself (and everyone who will sign in) as test users while it is in testing.\n3. **APIs & Services, Credentials, Create credentials, OAuth client ID**: type\n   *Web application*, with the authorized redirect URI\n   `https://<your ai-os address>/api/oauth/callback`\n   (on your own machine: `http://localhost:8080/api/oauth/callback`).\n4. Paste the client id and secret below. Both are shared by the Google connectors,\n   so the next one needs nothing new.\n"
+  variables:
+  - variable: GOOGLE_AIOS_CLIENT_ID
+    label: Google OAuth client id
+    hint: 'Google Cloud console, APIs & Services, Credentials: a Web application client.'
+    secret: false
+    required: true
+  - variable: GOOGLE_AIOS_CLIENT_SECRET
+    label: Google OAuth client secret
+    hint: Shown with the client id when the client is created.
+    secret: true
+    required: true

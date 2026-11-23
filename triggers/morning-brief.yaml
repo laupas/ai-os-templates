@@ -1,0 +1,12 @@
+name: Morning brief
+prompt: 'Give me a short morning brief: today''s weather where I am, and what is on my calendar today, with the first appointment first.'
+cron:
+- 0 7 * * 1-5
+timezone: Europe/Zurich
+agent: null
+enabled: true
+max_lateness_minutes: 60
+store:
+  title: Morning brief
+  category: Everyday
+  notes: 'Weekdays at 07:00: the weather and today''s calendar, asked of the orchestrator, which hands the parts to the `weather` and `calendar` agents. Add those agents first. Runs in `Europe/Zurich` time; change the time zone and the times on the Triggers page after adding it.'

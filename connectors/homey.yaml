@@ -1,0 +1,17 @@
+description: Homey smart home, Athom's hosted MCP server (all hubs of the signed-in account)
+config:
+  type: http
+  url: https://mcp.athom.com
+enabled: true
+sign_in: shared
+shared_fallback: false
+store:
+  title: Homey
+  category: Smart home
+  notes: 'Athom''s hosted MCP server for Homey. After adding it, sign in on the Connectors page
+
+    with the Homey account that owns your hubs; ai-os registers itself as an OAuth client,
+
+    so there is nothing to paste here.
+
+    '

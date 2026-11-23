@@ -1,0 +1,33 @@
+description: GitHub's own remote MCP server, read-only (repositories, issues, pull requests, Actions), with a fine-grained token
+config:
+  type: http
+  url: https://api.githubcopilot.com/mcp/readonly
+  headers:
+    Authorization: Bearer ${GITHUB_MCP_TOKEN}
+    X-MCP-Toolsets: repos,issues,pull_requests,actions
+enabled: true
+sign_in: shared
+shared_fallback: false
+store:
+  title: GitHub (read-only)
+  category: Developer
+  notes: 'GitHub''s hosted MCP server, on its read-only endpoint: agents can read but never
+
+    change anything on GitHub.
+
+
+    Create a **fine-grained personal access token** (GitHub, Settings, Developer
+
+    settings, Personal access tokens, Fine-grained tokens) with read-only access to the
+
+    repositories you want ai-os to see: Contents, Issues, Pull requests, Actions and
+
+    Metadata. Paste it below.
+
+    '
+  variables:
+  - variable: GITHUB_MCP_TOKEN
+    label: GitHub token
+    hint: A fine-grained personal access token with read-only permissions.
+    secret: true
+    required: true
