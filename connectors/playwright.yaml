@@ -8,4 +8,12 @@ shared_fallback: false
 store:
   title: Playwright browser
   category: Web
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://github.com/microsoft/playwright-mcp
+  tags:
+  - browser
+  - web
+  - docker
   notes: "The ai-os image has no browser, so Playwright runs in a container of its own, on the\nsame Docker network as ai-os. Add it to the `docker-compose.yml` of ai-os:\n\n```yaml\n  playwright-mcp:\n    image: mcr.microsoft.com/playwright/mcp\n    restart: unless-stopped\n    command: [\"--headless\", \"--isolated\", \"--port\", \"8931\", \"--host\", \"0.0.0.0\",\n              \"--allowed-hosts\", \"*\"]\n```\n\nand run `docker compose up -d`. ai-os reaches it at `http://playwright-mcp:8931/mcp`;\nwith another service name or port, change the `url` on the connector after adding it.\nDo not publish its port: anyone who can reach it can drive the browser.\n"

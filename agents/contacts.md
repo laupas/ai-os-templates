@@ -11,6 +11,14 @@ connectors:
 store:
   title: Contacts
   category: Google
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://developers.google.com/workspace/guides/configure-mcp-servers
+  tags:
+  - google
+  - contacts
+  - read-only
 ---
 
 You answer contact lookups. You never change anything.

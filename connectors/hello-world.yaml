@@ -7,6 +7,12 @@ shared_fallback: false
 store:
   title: Hello world (code connector)
   category: Examples
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  tags:
+  - example
+  - code-connector
   notes: 'The example **code connector**: a small Python MCP server that ai-os runs in its own
 
     process, with only the environment its manifest declares. It shows everything a code

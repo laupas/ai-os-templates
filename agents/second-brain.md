@@ -13,6 +13,13 @@ connectors: {}
 store:
   title: Second brain (notes vault)
   category: Notes
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  tags:
+  - notes
+  - files
+  - obsidian
   notes: "Works on a folder of Markdown notes (an Obsidian vault, for example) mounted into the\nai-os container at `/vault`:\n\n1. In `docker-compose.yml`, under the ai-os service's `volumes`:\n   `- /path/to/your/vault:/vault`\n2. Under Settings, Files, add `/vault` to the read roots, and to the write roots if the\n   agent may write notes.\n3. The built-in tools `Grep`, `Glob`, `Read`, `Edit` and `Write` are allowed by\n   default; if you narrowed `agent.builtin_tools` in aios.yaml, add them back.\n\nEvery write asks for approval unless your approval rules say otherwise.\n"
 ---
 

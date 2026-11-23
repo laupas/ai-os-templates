@@ -9,4 +9,11 @@ max_lateness_minutes: 60
 store:
   title: Morning brief
   category: Everyday
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  tags:
+  - daily
+  - weather
+  - calendar
   notes: 'Weekdays at 07:00: the weather and today''s calendar, asked of the orchestrator, which hands the parts to the `weather` and `calendar` agents. Add those agents first. Runs in `Europe/Zurich` time; change the time zone and the times on the Triggers page after adding it.'

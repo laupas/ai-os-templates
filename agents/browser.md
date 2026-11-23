@@ -26,6 +26,13 @@ connectors:
 store:
   title: Browser
   category: Web
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://github.com/microsoft/playwright-mcp
+  tags:
+  - browser
+  - web
 ---
 
 You use a headless Chromium through the `playwright` tools to do a task on a

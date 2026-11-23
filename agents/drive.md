@@ -9,6 +9,13 @@ connectors:
 store:
   title: Drive
   category: Google
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://developers.google.com/workspace/guides/configure-mcp-servers
+  tags:
+  - google
+  - files
 ---
 
 You work with the user's Google Drive through the `google-drive` tools.

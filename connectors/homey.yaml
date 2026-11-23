@@ -8,6 +8,14 @@ shared_fallback: false
 store:
   title: Homey
   category: Smart home
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://homey.app/en-us/news/introducing-the-homey-mcp-server/
+  tags:
+  - smart-home
+  - homey
+  - oauth
   notes: 'Athom''s hosted MCP server for Homey. After adding it, sign in on the Connectors page
 
     with the Homey account that owns your hubs; ai-os registers itself as an OAuth client,

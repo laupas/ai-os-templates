@@ -19,6 +19,14 @@ shared_fallback: false
 store:
   title: Google Drive
   category: Google
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://developers.google.com/workspace/guides/configure-mcp-servers
+  tags:
+  - google
+  - files
+  - oauth
   notes: "Uses Google's own MCP server (Google Drive, a Developer Preview). Every user signs in with\ntheir own Google account on the Connectors page.\n\nOne OAuth client serves all the Google connectors; set it up once:\n\n1. In the [Google Cloud console](https://console.cloud.google.com/), create or pick a\n   project and enable the **Google Drive** API and its MCP server.\n2. **APIs & Services, OAuth consent screen**: an External or Internal app, and add\n   yourself (and everyone who will sign in) as test users while it is in testing.\n3. **APIs & Services, Credentials, Create credentials, OAuth client ID**: type\n   *Web application*, with the authorized redirect URI\n   `https://<your ai-os address>/api/oauth/callback`\n   (on your own machine: `http://localhost:8080/api/oauth/callback`).\n4. Paste the client id and secret below. Both are shared by the Google connectors,\n   so the next one needs nothing new.\n"
   variables:
   - variable: GOOGLE_AIOS_CLIENT_ID

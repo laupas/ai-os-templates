@@ -54,6 +54,11 @@ ai-os uses on the Store page and drops when it adds the item:
 store:
   title: Google Calendar          # the name shown; default: the id
   category: Google                # grouping on the Store page
+  version: "1.0.0"                # semantic versioning, quoted
+  author: ai-os templates
+  license: MIT
+  homepage: https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server
+  tags: [google, calendar, oauth] # short, lower-case
   notes: |                        # Markdown shown before adding: setup steps
     Create an OAuth client ...
   variables:                      # asked for when adding, saved as Variables
@@ -68,9 +73,17 @@ store:
 Requirements an item implies need no listing: an agent needs its connectors and
 skills, a trigger its agent.
 
+`homepage` links to the upstream server or service; leave it out where there is
+none. ai-os offers an update when an item's `version` in a source is higher than
+the version installed, so **bump `version` on every change to an item**: a fix
+raises the last number, a new ability the middle one, a change that needs the
+installation to do something (a new variable, a renamed tool) the first.
+
 ## Contributing
 
 - One item per file, named by its id (lower-case letters, digits and dashes).
+- Every item has `version`, `author`, `license` and `tags` in its `store:` block;
+  raise `version` with each change.
 - No secrets and no personal data: every key, token or per-installation value is a
   `${VARIABLE}` with an entry under `store.variables`.
 - Give a connector's write tools some thought: ai-os asks for approval according to

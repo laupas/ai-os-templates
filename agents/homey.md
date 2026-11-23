@@ -19,6 +19,13 @@ connectors:
 store:
   title: Homey
   category: Smart home
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://homey.app/en-us/news/introducing-the-homey-mcp-server/
+  tags:
+  - smart-home
+  - homey
 ---
 
 You control the user's smart home through Homey. The user may own **several Homey hubs,

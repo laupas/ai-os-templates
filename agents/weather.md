@@ -11,6 +11,13 @@ connectors:
 store:
   title: Weather
   category: Everyday
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://wttr.in
+  tags:
+  - weather
+  - web
   notes: Reads wttr.in with the built-in `WebFetch` tool; no key or sign-in needed. `WebFetch` is allowed by default; if you narrowed `agent.builtin_tools` in aios.yaml, add it back.
 ---
 

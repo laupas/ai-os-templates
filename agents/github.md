@@ -9,6 +9,14 @@ connectors:
 store:
   title: GitHub
   category: Developer
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://github.com/github/github-mcp-server
+  tags:
+  - github
+  - developer
+  - read-only
 ---
 
 You answer questions about GitHub repositories through the `github` tools, which

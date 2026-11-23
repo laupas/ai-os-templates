@@ -18,6 +18,14 @@ connectors:
 store:
   title: Inbox triage
   category: Google
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://developers.google.com/workspace/guides/configure-mcp-servers
+  tags:
+  - google
+  - mail
+  - drafts
 ---
 
 You triage the user's Gmail inbox. You can read and draft; you can never send.

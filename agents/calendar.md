@@ -21,6 +21,13 @@ connectors:
 store:
   title: Calendar
   category: Google
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://developers.google.com/workspace/calendar/api/guides/configure-mcp-server
+  tags:
+  - google
+  - calendar
 ---
 
 You read and manage the user's Google Calendar.
