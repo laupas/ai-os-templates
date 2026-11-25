@@ -1,0 +1,64 @@
+description: Microsoft 365 through Microsoft's Work IQ MCP server - mail, calendar, contacts and more, as Graph paths
+config:
+  type: http
+  url: https://workiq.svc.cloud.microsoft/mcp
+  oauth:
+    authorization_endpoint: https://login.microsoftonline.com/${M365_TENANT_ID}/oauth2/v2.0/authorize
+    token_endpoint: https://login.microsoftonline.com/${M365_TENANT_ID}/oauth2/v2.0/token
+    client_id: ${M365_CLIENT_ID}
+    client_secret: ${M365_CLIENT_SECRET}
+    scopes:
+    - api://workiq.svc.cloud.microsoft/WorkIQ.Read
+    - api://workiq.svc.cloud.microsoft/WorkIQ.Act
+    - offline_access
+enabled: true
+sign_in: per_user
+shared_fallback: false
+store:
+  title: Microsoft 365
+  category: Microsoft
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/
+  tags:
+  - microsoft
+  - mail
+  - calendar
+  - oauth
+  notes: |
+    Uses Microsoft's Work IQ MCP server, which reaches mail, calendar, contacts and
+    more of Microsoft 365. Every user signs in with their own work account on the
+    Connectors page.
+
+    It needs an app registration in your Microsoft Entra tenant; set it up once:
+
+    1. In the [Entra admin center](https://entra.microsoft.com/), **App registrations,
+       New registration**: accounts in this organizational directory only, platform
+       *Web*, with the redirect URI `https://<your ai-os address>/api/oauth/callback`
+       (on your own machine: `http://localhost:8080/api/oauth/callback`).
+    2. **API permissions, Add a permission, APIs my organization uses**: Work IQ,
+       delegated `WorkIQ.Read` and `WorkIQ.Act`. Grant admin consent if your tenant
+       requires it.
+    3. **Certificates & secrets, New client secret**, and copy its value.
+    4. Paste the tenant id (Overview, *Directory (tenant) ID*), the client id
+       (*Application (client) ID*) and the secret below.
+
+    `WorkIQ.Act` lets agents send mail and change calendar entries; leave it out of
+    the scopes if they should only read.
+  variables:
+  - variable: M365_TENANT_ID
+    label: Entra tenant id
+    hint: 'Entra admin center, the app registration, Overview: Directory (tenant) ID.'
+    secret: false
+    required: true
+  - variable: M365_CLIENT_ID
+    label: Entra client id
+    hint: 'The app registration, Overview: Application (client) ID.'
+    secret: false
+    required: true
+  - variable: M365_CLIENT_SECRET
+    label: Entra client secret
+    hint: 'The app registration, Certificates & secrets: the value of a client secret.'
+    secret: true
+    required: true
