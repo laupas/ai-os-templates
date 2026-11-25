@@ -8,8 +8,7 @@ config:
     client_id: ${M365_CLIENT_ID}
     client_secret: ${M365_CLIENT_SECRET}
     scopes:
-    - api://workiq.svc.cloud.microsoft/WorkIQ.Read
-    - api://workiq.svc.cloud.microsoft/WorkIQ.Act
+    - api://workiq.svc.cloud.microsoft/WorkIQAgent.Ask
     - offline_access
 enabled: true
 sign_in: per_user
@@ -17,41 +16,48 @@ shared_fallback: false
 store:
   title: Microsoft 365
   category: Microsoft
-  version: "1.0.1"
+  version: "2.0.0"
   author: ai-os templates
   license: MIT
-  homepage: https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/
+  homepage: https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/work-iq/mcp/overview
   tags:
   - microsoft
   - mail
   - calendar
   - oauth
   notes: |
-    Uses Microsoft's Work IQ MCP server, which reaches mail, calendar, contacts and
-    more of Microsoft 365. Every user signs in with their own work account on the
-    Connectors page.
+    Uses Microsoft's Work IQ MCP server, which reaches mail, calendar, files, chats,
+    meetings and contacts in Microsoft 365. Every user signs in with their own work
+    account on the Connectors page and sees only what that account can see.
 
-    It needs an app registration in your Microsoft Entra tenant; set it up once:
+    It needs an app registration in your Microsoft Entra tenant and Work IQ billing;
+    set them up once:
 
-    1. Work IQ must exist in your tenant as a service principal. If it does not,
-       sign-in fails with `AADSTS650052` and Work IQ is missing from step 3. A
-       tenant administrator creates it once, with the Azure CLI
-       `az ad sp create --id fdcc1f02-fc51-4226-8753-f668596af7f7` or with
-       Microsoft Graph PowerShell
-       `New-MgServicePrincipal -AppId fdcc1f02-fc51-4226-8753-f668596af7f7`.
+    1. Your tenant must be enabled for Work IQ: its service principal (app id
+       `fdcc1f02-fc51-4226-8753-f668596af7f7`) must exist. If it does not, sign-in
+       fails with `AADSTS650052`; a tenant administrator follows Microsoft's
+       *Enable your tenant for Work IQ*, or runs
+       `az ad sp create --id fdcc1f02-fc51-4226-8753-f668596af7f7`.
     2. In the [Entra admin center](https://entra.microsoft.com/), **App registrations,
-       New registration** (or the app you already use for single sign-on): accounts
-       in this organizational directory only, platform *Web*, with the redirect URI `https://<your ai-os address>/api/oauth/callback`
+       New registration** (or the app you already use for single sign-on): single
+       tenant, platform *Web*, with the redirect URI
+       `https://<your ai-os address>/api/oauth/callback`
        (on your own machine: `http://localhost:8080/api/oauth/callback`).
-    3. **API permissions, Add a permission, APIs my organization uses**: Work IQ,
-       delegated `WorkIQ.Read` and `WorkIQ.Act`. Grant admin consent if your tenant
-       requires it.
-    4. **Certificates & secrets, New client secret**, and copy its value.
-    5. Paste the tenant id (Overview, *Directory (tenant) ID*), the client id
+    3. **API permissions, Add a permission, APIs my organization uses**: search
+       `fdcc1f02-fc51-4226-8753-f668596af7f7`, delegated **WorkIQAgent.Ask**. Then
+       **Grant admin consent**; it is required. No Microsoft Graph permissions are
+       needed.
+    4. **Certificates & secrets, New client secret**, and copy its *Value*.
+    5. Work IQ is billed by use in Copilot Credits: in the Microsoft 365 admin center
+       a Global or Billing Administrator activates billing and creates an
+       identity-based spending policy for the service *Work IQ API for custom apps
+       and agents* that covers the users who will sign in. Without it, Work IQ can
+       refuse the connection although sign-in works.
+    6. Paste the tenant id (Overview, *Directory (tenant) ID*), the client id
        (*Application (client) ID*) and the secret below.
 
-    `WorkIQ.Act` lets agents send mail and change calendar entries; leave it out of
-    the scopes if they should only read.
+    `WorkIQAgent.Ask` is not read-only: agents can also send mail and change
+    calendar entries. Grant agents only the tools they need.
   variables:
   - variable: M365_TENANT_ID
     label: Entra tenant id
