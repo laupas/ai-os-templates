@@ -17,7 +17,7 @@ shared_fallback: false
 store:
   title: Microsoft 365
   category: Microsoft
-  version: "1.0.0"
+  version: "1.0.1"
   author: ai-os templates
   license: MIT
   homepage: https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/
@@ -33,15 +33,21 @@ store:
 
     It needs an app registration in your Microsoft Entra tenant; set it up once:
 
-    1. In the [Entra admin center](https://entra.microsoft.com/), **App registrations,
-       New registration**: accounts in this organizational directory only, platform
-       *Web*, with the redirect URI `https://<your ai-os address>/api/oauth/callback`
+    1. Work IQ must exist in your tenant as a service principal. If it does not,
+       sign-in fails with `AADSTS650052` and Work IQ is missing from step 3. A
+       tenant administrator creates it once, with the Azure CLI
+       `az ad sp create --id fdcc1f02-fc51-4226-8753-f668596af7f7` or with
+       Microsoft Graph PowerShell
+       `New-MgServicePrincipal -AppId fdcc1f02-fc51-4226-8753-f668596af7f7`.
+    2. In the [Entra admin center](https://entra.microsoft.com/), **App registrations,
+       New registration** (or the app you already use for single sign-on): accounts
+       in this organizational directory only, platform *Web*, with the redirect URI `https://<your ai-os address>/api/oauth/callback`
        (on your own machine: `http://localhost:8080/api/oauth/callback`).
-    2. **API permissions, Add a permission, APIs my organization uses**: Work IQ,
+    3. **API permissions, Add a permission, APIs my organization uses**: Work IQ,
        delegated `WorkIQ.Read` and `WorkIQ.Act`. Grant admin consent if your tenant
        requires it.
-    3. **Certificates & secrets, New client secret**, and copy its value.
-    4. Paste the tenant id (Overview, *Directory (tenant) ID*), the client id
+    4. **Certificates & secrets, New client secret**, and copy its value.
+    5. Paste the tenant id (Overview, *Directory (tenant) ID*), the client id
        (*Application (client) ID*) and the secret below.
 
     `WorkIQ.Act` lets agents send mail and change calendar entries; leave it out of
