@@ -1,0 +1,77 @@
+description: Outlook mail and calendar of each user's own Microsoft 365 account, through Microsoft Graph
+config:
+  code: outlook
+  oauth:
+    authorization_endpoint: https://login.microsoftonline.com/${M365_TENANT_ID}/oauth2/v2.0/authorize
+    token_endpoint: https://login.microsoftonline.com/${M365_TENANT_ID}/oauth2/v2.0/token
+    client_id: ${M365_CLIENT_ID}
+    client_secret: ${M365_CLIENT_SECRET}
+    scopes:
+    - User.Read
+    - Mail.ReadWrite
+    - Mail.Send
+    - Calendars.ReadWrite
+    - People.Read
+    - offline_access
+enabled: true
+sign_in: per_user
+shared_fallback: false
+store:
+  title: Outlook (mail and calendar)
+  category: Microsoft
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://learn.microsoft.com/en-us/graph/outlook-mail-concept-overview
+  tags:
+  - microsoft
+  - outlook
+  - mail
+  - calendar
+  - oauth
+  - code-connector
+  notes: |
+    A **code connector**: a small Python server that ai-os runs itself and that calls
+    Microsoft Graph with the signed-in user's own token. No Copilot license, no Work
+    IQ, no extra container. Every user signs in with their own work account on the
+    Connectors page; a turn only ever gets the account of the user it is for.
+
+    It reads, searches, drafts and sends mail, and reads, creates, changes and answers
+    calendar events. Sending, inviting and answering are approved by a human every
+    time. Installing it copies `code/outlook/` into your configuration repository and
+    adds the `outlook` agent. Read the code first: it runs inside your installation.
+
+    It needs an app registration in your Microsoft Entra tenant; set it up once (the
+    one you use for single sign-on will do):
+
+    1. In the [Entra admin center](https://entra.microsoft.com/), **App registrations,
+       New registration**: single tenant, platform *Web*, with the redirect URI
+       `https://<your ai-os address>/api/oauth/callback`
+       (on your own machine: `http://localhost:8080/api/oauth/callback`).
+    2. **API permissions, Add a permission, Microsoft Graph, Delegated**: `User.Read`,
+       `Mail.ReadWrite`, `Mail.Send`, `Calendars.ReadWrite`, `People.Read` and
+       `offline_access`. If your tenant does not let users consent themselves,
+       **Grant admin consent**.
+    3. **Certificates & secrets, New client secret**, and copy its *Value*.
+    4. Paste the tenant id (Overview, *Directory (tenant) ID*), the client id
+       (*Application (client) ID*) and the secret below.
+
+    For an agent that only reads, set the connector's **Read only** setting; you may
+    then drop `Mail.ReadWrite`, `Mail.Send` and `Calendars.ReadWrite` for `Mail.Read`
+    and `Calendars.Read`.
+  variables:
+  - variable: M365_TENANT_ID
+    label: Entra tenant id
+    hint: 'Entra admin center, the app registration, Overview: Directory (tenant) ID.'
+    secret: false
+    required: true
+  - variable: M365_CLIENT_ID
+    label: Entra client id
+    hint: 'The app registration, Overview: Application (client) ID.'
+    secret: false
+    required: true
+  - variable: M365_CLIENT_SECRET
+    label: Entra client secret
+    hint: 'The app registration, Certificates & secrets: the value of a client secret.'
+    secret: true
+    required: true

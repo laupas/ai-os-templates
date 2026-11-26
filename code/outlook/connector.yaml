@@ -1,0 +1,38 @@
+# Outlook mail and calendar through Microsoft Graph, in the account of whoever the
+# turn is for. ai-os signs each user in with the connector's `oauth:` client and
+# hands the server that user's access token as AIOS_ACCESS_TOKEN; the server keeps
+# nothing.
+description: >-
+  Outlook mail and calendar of the signed-in Microsoft 365 account, through
+  Microsoft Graph: read, search, draft and send mail; read, create, change and
+  answer calendar events; free/busy and people lookup.
+
+# Everything that sends, or changes what other people see, is approved by a human.
+approval:
+  always: [send_mail, send_draft, create_event, update_event, delete_event, respond_to_event]
+  preflight: [send_mail]
+
+settings:
+  type: object
+  properties:
+    read_only:
+      type: boolean
+      title: Read only
+      default: false
+      x-locked: true
+      description: Offer only the tools that read; nothing is drafted, sent, moved or changed.
+    max_results:
+      type: integer
+      title: Most results per list
+      default: 25
+      minimum: 1
+      maximum: 100
+      x-locked: true
+    max_body_chars:
+      type: integer
+      title: Longest body read
+      default: 20000
+      minimum: 1000
+      maximum: 200000
+      x-unit: characters
+      description: A longer mail or event text is cut off here.
