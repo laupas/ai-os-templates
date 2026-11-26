@@ -6,10 +6,12 @@ access token of the turn's sign-in (the connector's `oauth:` client; with "each
 user's own account", the user's own). The server keeps nothing: no token, no file.
 
 Word, Excel and PowerPoint files are read as text with the standard library (they
-are zipped XML); PDFs and other binary files are not, an agent gets their summary
-and link instead.
+are zipped XML), PDFs with pypdf (which ai-os brings along). The old Office formats,
+OpenDocument, RTF and mails are turned into a PDF by Microsoft first. Pictures go to
+the agent as they are, so the model looks at them itself.
 """
 
+import asyncio
 import io
 import json
 import os
@@ -21,15 +23,30 @@ from urllib.parse import quote, urlsplit
 from xml.etree import ElementTree
 
 import aiohttp
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Image, MCPServer
+
+try:
+    from pypdf import PdfReader
+except ImportError:  # an ai-os from before it brought pypdf along
+    PdfReader = None  # type: ignore[assignment, misc]
 
 DEFAULTS = {"read_only": False, "max_results": 25, "max_file_mb": 20, "max_text_chars": 40000}
 SETTINGS = DEFAULTS | json.loads(os.environ.get("AIOS_CONNECTOR_SETTINGS") or "{}")
 # Only the tests set this: ai-os passes a code connector nothing it does not declare.
 GRAPH = os.environ.get("SHAREPOINT_GRAPH_URL") or "https://graph.microsoft.com/v1.0"
 TIMEOUT = aiohttp.ClientTimeout(total=120)
-TEXT_TYPES = (".txt", ".md", ".csv", ".json", ".xml", ".html", ".htm", ".yaml", ".yml", ".log")
-OFFICE_TYPES = (".docx", ".pptx", ".xlsx")
+TEXT_TYPES = (
+    ".txt", ".md", ".csv", ".tsv", ".json", ".xml", ".html", ".htm", ".yaml", ".yml",
+    ".log", ".ini", ".toml", ".sql", ".py", ".js", ".ts", ".ps1", ".sh", ".vtt", ".srt",
+)  # fmt: skip
+OFFICE_TYPES = (".docx", ".docm", ".pptx", ".pptm", ".xlsx", ".xlsm")
+CONVERTED_TYPES = (
+    ".doc", ".xls", ".ppt", ".pps", ".ppsx", ".rtf", ".odt", ".ods", ".odp", ".msg", ".eml",
+)  # fmt: skip
+"""Read after Microsoft turned them into a PDF (`/content?format=pdf`)."""
+IMAGE_TYPES = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".gif": "gif", ".webp": "webp"}
+IMAGE_MB = 5
+"""The largest picture the model takes, in MB."""
 UNZIPPED_LIMIT = 200 * 1024 * 1024
 """The most an Office file may unpack to: a guard against zip bombs."""
 
@@ -232,17 +249,34 @@ def xlsx_text(content: bytes) -> str:
     return "\n\n".join(parts)
 
 
+def pdf_text(content: bytes) -> str:
+    if PdfReader is None:
+        raise GraphError("this ai-os cannot read PDFs yet: update it")
+    reader = PdfReader(io.BytesIO(content))
+    if reader.is_encrypted and not reader.decrypt(""):
+        raise GraphError("the PDF is protected by a password")
+    pages = [
+        f"--- Page {number}\n{(page.extract_text() or '').strip()}"
+        for number, page in enumerate(reader.pages, start=1)
+    ]
+    return "\n\n".join(pages)
+
+
 def text_of(name: str, content: bytes) -> str | None:
     """A file's text, or None for a kind that is not read."""
     lower = name.lower()
     try:
-        if lower.endswith(".docx"):
+        if lower.endswith((".docx", ".docm")):
             return docx_text(content)
-        if lower.endswith(".pptx"):
+        if lower.endswith((".pptx", ".pptm")):
             return pptx_text(content)
-        if lower.endswith(".xlsx"):
+        if lower.endswith((".xlsx", ".xlsm")):
             return xlsx_text(content)
-    except (zipfile.BadZipFile, KeyError, ElementTree.ParseError) as exc:
+        if lower.endswith((".pdf", *CONVERTED_TYPES)):
+            return pdf_text(content)
+    except GraphError:
+        raise
+    except Exception as exc:  # a broken or odd file must not end the session
         raise GraphError(f"{name} could not be read: {exc}") from exc
     if lower.endswith(TEXT_TYPES):
         return content.decode("utf-8", errors="replace")
@@ -336,25 +370,43 @@ class SharePoint:
         data = await self._graph.call("GET", drive + where, {"$top": str(_limit(limit))})
         return _json([_item_row(i) for i in data.get("value", [])])
 
-    async def read_file(self, drive_id: str, item_id: str) -> str:
-        """A file's text: Word, Excel (every sheet, tab-separated), PowerPoint (every
-        slide) and plain text files. Other kinds (PDF, images) give only their details
-        and link."""
+    async def read_file(self, drive_id: str, item_id: str) -> list[str | Image]:
+        """A file's content. As text: PDF (page by page), Word, Excel (every sheet,
+        tab-separated), PowerPoint (every slide), the old .doc/.xls/.ppt, OpenDocument,
+        RTF, mails (.msg, .eml) and plain text files. A picture (PNG, JPEG, GIF, WebP)
+        comes as the picture itself. Other kinds give only their details and link. A
+        scanned PDF has no text: say so, and give the link."""
         path = f"/drives/{_id(drive_id)}/items/{_id(item_id)}"
         item = await self._graph.call("GET", path)
         row = _item_row(item)
         if "folder" in item:
             raise GraphError(f"{item.get('name')} is a folder: use list_folder")
-        limit = int(SETTINGS["max_file_mb"]) * 1024 * 1024
-        if (item.get("size") or 0) > limit:
-            return _json({**row, "text": None, "why": f"larger than {SETTINGS['max_file_mb']} MB"})
         name = item.get("name") or ""
-        if not name.lower().endswith(OFFICE_TYPES + TEXT_TYPES):
-            return _json({**row, "text": None, "why": "this kind of file is not read as text"})
-        content = await self._graph.download(f"{path}/content", limit)
+        lower = name.lower()
+        picture = next((f for e, f in IMAGE_TYPES.items() if lower.endswith(e)), None)
+        mb = (
+            min(int(SETTINGS["max_file_mb"]), IMAGE_MB) if picture else int(SETTINGS["max_file_mb"])
+        )
+        limit = mb * 1024 * 1024
+        if (item.get("size") or 0) > limit:
+            return [_json({**row, "text": None, "why": f"larger than {mb} MB"})]
+        converted = lower.endswith(CONVERTED_TYPES)
+        if not (picture or converted or lower.endswith((".pdf", *OFFICE_TYPES, *TEXT_TYPES))):
+            return [_json({**row, "text": None, "why": "this kind of file is not read"})]
+        content = await self._graph.download(
+            f"{path}/content" + ("?format=pdf" if converted else ""), limit
+        )
         if len(content) > limit:
-            return _json({**row, "text": None, "why": f"larger than {SETTINGS['max_file_mb']} MB"})
-        return _json({**row, "text": _cut(text_of(name, content) or "")})
+            return [_json({**row, "text": None, "why": f"larger than {mb} MB"})]
+        if picture:
+            return [_json(row), Image(data=content, format=picture)]
+        text = (await asyncio.to_thread(text_of, name, content) or "").strip()
+        if (
+            lower.endswith((".pdf", *CONVERTED_TYPES))
+            and not re.sub(r"--- Page \d+", "", text).strip()
+        ):
+            return [_json({**row, "text": None, "why": "the PDF has no text: scanned pages"})]
+        return [_json({**row, "text": _cut(text)})]
 
     async def list_lists(self, site_id: str) -> str:
         """A site's lists (not its libraries), with their list_id."""
@@ -415,6 +467,41 @@ class SharePoint:
         )
         return _json(_item_row(uploaded))
 
+    async def move_item(self, drive_id: str, item_id: str, folder: str) -> str:
+        """Moves a file or folder to another folder of the same library, given by its
+        path such as `Projects/2026` ("" for the top). It fails if the folder already
+        holds an item of that name. Another library is not possible: Graph moves only
+        within one. A human approves it first."""
+        drive = f"/drives/{_id(drive_id)}"
+        target = await self._graph.call(
+            "GET", f"{drive}/root:/{_path(folder)}" if folder.strip("/") else f"{drive}/root"
+        )
+        if "folder" not in target:
+            raise GraphError(f"{folder} is not a folder")
+        moved = await self._graph.call(
+            "PATCH",
+            f"{drive}/items/{_id(item_id)}",
+            {"@microsoft.graph.conflictBehavior": "fail"},
+            body={"parentReference": {"id": target.get("id")}},
+        )
+        return _json(_item_row(moved))
+
+    async def rename_item(self, drive_id: str, item_id: str, name: str) -> str:
+        """Renames a file or folder where it is. A file keeps its extension when `name`
+        has none. It fails if the folder already holds an item of that name. A human
+        approves it first."""
+        path = f"/drives/{_id(drive_id)}/items/{_id(item_id)}"
+        item = await self._graph.call("GET", path, {"$select": "id,name,file,folder"})
+        old, new = item.get("name") or "", name.strip()
+        if not new or "/" in new or "\\" in new:
+            raise GraphError(f"{name!r} is not a name")
+        if "file" in item and "." in old and "." not in new:
+            new += old[old.rindex(".") :]
+        renamed = await self._graph.call(
+            "PATCH", path, {"@microsoft.graph.conflictBehavior": "fail"}, body={"name": new}
+        )
+        return _json(_item_row(renamed))
+
     async def create_list_item(self, site_id: str, list_id: str, fields: dict[str, Any]) -> str:
         """Adds an item to a list; `fields` by internal column name, as
         list_list_items shows them. A human approves it first."""
@@ -453,7 +540,7 @@ READING = [
     "list_lists",
     "list_list_items",
 ]
-WRITING = ["upload_text_file", "create_list_item", "update_list_item"]
+WRITING = ["upload_text_file", "move_item", "rename_item", "create_list_item", "update_list_item"]
 
 
 def server(sharepoint: SharePoint) -> MCPServer:

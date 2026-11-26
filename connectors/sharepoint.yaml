@@ -17,7 +17,7 @@ shared_fallback: false
 store:
   title: SharePoint and OneDrive
   category: Microsoft
-  version: "1.0.0"
+  version: "1.1.0"
   author: ai-os templates
   license: MIT
   homepage: https://learn.microsoft.com/en-us/graph/api/resources/sharepoint
@@ -34,9 +34,11 @@ store:
     container. Every user signs in with their own work account on the Connectors
     page, so an agent sees exactly the sites and files that user may see.
 
-    It searches SharePoint and OneDrive, browses libraries, reads Word, Excel,
-    PowerPoint and text files (not PDFs), reads lists, and uploads text files and adds
-    or changes list items, each approved by a human. Installing it copies
+    It searches SharePoint and OneDrive, browses libraries, reads PDF, Word, Excel,
+    PowerPoint and text files (also the old .doc, .xls and .ppt) and looks at pictures,
+    reads lists, uploads text files, moves and renames files and folders, and adds or
+    changes list items, each approved by a human. Reading PDFs needs an ai-os from
+    2026-11-26 or later. Installing it copies
     `code/sharepoint/` into your configuration repository and adds the `sharepoint`
     agent. Read the code first: it runs inside your installation.
 

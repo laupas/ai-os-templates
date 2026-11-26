@@ -1,6 +1,7 @@
 """The connector's own tests, against a fake Graph. Run them with ai-os's Python, in
 the ai-os clone: `uv run pytest <config>/code/sharepoint/tests`."""
 
+import base64
 import io
 import json
 import os
@@ -60,6 +61,44 @@ XLSX = _zip(
         "<c><v>1200</v></c></row></sheetData></worksheet>",
     }
 )
+
+
+def _pdf(*pages: str) -> bytes:
+    """A small PDF with one line of text per page."""
+    kids = " ".join(f"{4 + 2 * i} 0 R" for i in range(len(pages)))
+    objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        f"<< /Type /Pages /Kids [{kids}] /Count {len(pages)} >>",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    for i, text in enumerate(pages):
+        stream = f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET"
+        objects.append(
+            f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+            f"/Resources << /Font << /F1 3 0 R >> >> /Contents {5 + 2 * i} 0 R >>"
+        )
+        objects.append(f"<< /Length {len(stream)} >>\nstream\n{stream}\nendstream")
+    out, offsets = "%PDF-1.4\n", []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n{body}\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n"
+    out += "".join(f"{o:010d} 00000 n \n" for o in offsets)
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n"
+    return out.encode()
+
+
+PDF = _pdf("Quality policy", "Second page")
+
+
+def test_a_pdf_is_read_page_by_page() -> None:
+    assert sharepoint.pdf_text(PDF) == "--- Page 1\nQuality policy\n\n--- Page 2\nSecond page"
+
+
+def test_a_broken_pdf_is_an_error_not_a_crash() -> None:
+    with pytest.raises(sharepoint.GraphError, match="could not be read"):
+        sharepoint.text_of("x.pdf", b"%PDF-1.4 nothing")
 
 
 def test_word_is_read_paragraph_by_paragraph() -> None:
@@ -181,22 +220,62 @@ async def test_a_folder_is_listed_by_path_and_onedrive_without_a_drive(graph) ->
     assert graph.requests[1]["key"] == "GET /me/drive/root/children"
 
 
+async def _read(fake: FakeGraph, item: str) -> dict:
+    (answer,) = await _sp(fake).read_file("d1", item)
+    return json.loads(answer)
+
+
 async def test_a_word_file_is_downloaded_without_the_token_and_read(graph) -> None:
     graph.answers["GET /drives/d1/items/i1"] = (200, {"id": "i1", "name": "Plan.docx", "size": 9})
     graph.file = DOCX
-    answer = json.loads(await _sp(graph).read_file("d1", "i1"))
+    answer = await _read(graph, "i1")
     assert answer["text"] == "Project\tAlpha\nSecond line"
     assert graph.requests[1]["auth"] == "Bearer tok"
     assert graph.download_auth is None  # the pre-signed address gets no token
 
 
-async def test_a_pdf_and_a_big_file_are_not_downloaded(graph, monkeypatch) -> None:
-    graph.answers["GET /drives/d1/items/p"] = (200, {"id": "p", "name": "Scan.pdf", "size": 9})
-    answer = json.loads(await _sp(graph).read_file("d1", "p"))
+async def test_a_pdf_is_read(graph) -> None:
+    graph.answers["GET /drives/d1/items/p"] = (200, {"id": "p", "name": "Policy.PDF", "size": 9})
+    graph.file = PDF
+    assert (await _read(graph, "p"))["text"].startswith("--- Page 1\nQuality policy")
+    assert graph.requests[1]["query"] == {}
+
+
+async def test_a_scanned_pdf_says_it_has_no_text(graph) -> None:
+    graph.answers["GET /drives/d1/items/s"] = (200, {"name": "Scan.pdf", "size": 9})
+    graph.file = _pdf("")
+    answer = await _read(graph, "s")
+    assert answer["text"] is None and "scanned" in answer["why"]
+
+
+async def test_an_old_word_file_is_turned_into_a_pdf_by_microsoft(graph) -> None:
+    graph.answers["GET /drives/d1/items/o"] = (200, {"name": "Old SOP.doc", "size": 9})
+    graph.file = PDF
+    assert "Quality policy" in (await _read(graph, "o"))["text"]
+    assert graph.requests[1]["key"] == "GET /drives/d1/items/o/content"
+    assert graph.requests[1]["query"] == {"format": "pdf"}
+
+
+async def test_a_picture_comes_as_itself(graph) -> None:
+    graph.answers["GET /drives/d1/items/g"] = (200, {"name": "Chart.JPG", "size": 9})
+    graph.file = b"\xff\xd8\xff picture"
+    row, picture = await _sp(graph).read_file("d1", "g")
+    assert json.loads(row)["name"] == "Chart.JPG"
+    content = picture.to_image_content()
+    assert content.mime_type == "image/jpeg"
+    assert base64.b64decode(content.data) == graph.file
+
+
+async def test_an_unknown_kind_and_a_big_file_are_not_downloaded(graph, monkeypatch) -> None:
+    graph.answers["GET /drives/d1/items/z"] = (200, {"id": "z", "name": "Model.dwg", "size": 9})
+    answer = await _read(graph, "z")
     assert answer["text"] is None and "not read" in answer["why"]
     monkeypatch.setitem(sharepoint.SETTINGS, "max_file_mb", 1)
     graph.answers["GET /drives/d1/items/b"] = (200, {"name": "Big.docx", "size": 2_000_000})
-    assert "larger than 1 MB" in json.loads(await _sp(graph).read_file("d1", "b"))["why"]
+    assert "larger than 1 MB" in (await _read(graph, "b"))["why"]
+    monkeypatch.setitem(sharepoint.SETTINGS, "max_file_mb", 20)
+    graph.answers["GET /drives/d1/items/i"] = (200, {"name": "Photo.png", "size": 6_000_000})
+    assert "larger than 5 MB" in (await _read(graph, "i"))["why"]
     assert all(not r["key"].endswith("/content") for r in graph.requests)
 
 
@@ -204,7 +283,7 @@ async def test_a_long_text_is_cut_off(graph, monkeypatch) -> None:
     monkeypatch.setitem(sharepoint.SETTINGS, "max_text_chars", 5)
     graph.answers["GET /drives/d1/items/t"] = (200, {"name": "notes.txt", "size": 9})
     graph.file = b"abcdefghij"
-    text = json.loads(await _sp(graph).read_file("d1", "t"))["text"]
+    text = (await _read(graph, "t"))["text"]
     assert text.startswith("abcde\n[cut off at 5")
 
 
@@ -214,6 +293,46 @@ async def test_an_upload_does_not_replace_unless_asked(graph) -> None:
     assert request["key"] == "PUT /drives/d1/root:/Notes/a.md:/content"
     assert request["query"] == {"@microsoft.graph.conflictBehavior": "fail"}
     assert request["body"] == b"# Hi"
+
+
+async def test_a_move_finds_the_folder_by_path_and_never_replaces(graph) -> None:
+    graph.answers["GET /drives/d1/root:/Archive/2025"] = (200, {"id": "f9", "folder": {}})
+    graph.answers["PATCH /drives/d1/items/i1"] = (200, {"id": "i1", "name": "a.docx"})
+    row = json.loads(await _sp(graph).move_item("d1", "i1", "/Archive/2025/"))
+    move = graph.requests[1]
+    assert move["body"] == {"parentReference": {"id": "f9"}}
+    assert move["query"] == {"@microsoft.graph.conflictBehavior": "fail"}
+    assert row["item_id"] == "i1"
+
+
+async def test_a_move_into_a_file_is_refused(graph) -> None:
+    graph.answers["GET /drives/d1/root:/a.docx"] = (200, {"id": "x", "file": {}})
+    with pytest.raises(sharepoint.GraphError, match="not a folder"):
+        await _sp(graph).move_item("d1", "i1", "a.docx")
+    assert all(r["key"].startswith("GET") for r in graph.requests)
+
+
+async def test_a_move_to_the_top_of_the_library(graph) -> None:
+    graph.answers["GET /drives/d1/root"] = (200, {"id": "root", "folder": {}})
+    await _sp(graph).move_item("d1", "i1", "")
+    assert graph.requests[1]["body"] == {"parentReference": {"id": "root"}}
+
+
+async def test_a_rename_keeps_the_extension_and_never_replaces(graph) -> None:
+    graph.answers["GET /drives/d1/items/i1"] = (200, {"name": "Plan v1.docx", "file": {}})
+    await _sp(graph).rename_item("d1", "i1", "Plan final")
+    rename = graph.requests[1]
+    assert rename["key"] == "PATCH /drives/d1/items/i1"
+    assert rename["body"] == {"name": "Plan final.docx"}
+    assert rename["query"] == {"@microsoft.graph.conflictBehavior": "fail"}
+
+
+async def test_a_folder_is_renamed_as_given_and_a_path_is_no_name(graph) -> None:
+    graph.answers["GET /drives/d1/items/f"] = (200, {"name": "Old.Stuff", "folder": {}})
+    await _sp(graph).rename_item("d1", "f", "New")
+    assert graph.requests[1]["body"] == {"name": "New"}
+    with pytest.raises(sharepoint.GraphError, match="not a name"):
+        await _sp(graph).rename_item("d1", "f", "a/b")
 
 
 async def test_list_items_show_their_own_fields(graph) -> None:

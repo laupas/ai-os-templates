@@ -12,7 +12,7 @@ sees exactly what the user may see. The server stores nothing.
 | file | what |
 |---|---|
 | `connector.yaml` | the manifest: approvals for every write, settings (`read_only`, limits) |
-| `server.py` | the MCP server: 7 tools that read, 3 that write |
+| `server.py` | the MCP server: 7 tools that read, 5 that write |
 | `agents/sharepoint.md` | an agent for it, added with the connector |
 | `tests/` | its tests, against a fake Graph |
 
@@ -22,14 +22,24 @@ Reading: `search` (files by name and content, sites, list items; Microsoft Searc
 syntax), `get_site`, `list_libraries`, `list_folder`, `read_file`, `list_lists`,
 `list_list_items`.
 
-Writing, each approved by a human first: `upload_text_file`, `create_list_item`,
-`update_list_item`. With the setting `read_only` (locked: only an administrator
+Writing, each approved by a human first: `upload_text_file`, `move_item` (within one
+library), `rename_item`, `create_list_item`, `update_list_item`. None of them replaces
+an existing item unless asked to (only `upload_text_file` can be). With the setting `read_only` (locked: only an administrator
 changes it) none of these is offered.
 
-`read_file` reads Word (`.docx`), Excel (`.xlsx`, every sheet, tab-separated),
-PowerPoint (`.pptx`, every slide) and plain text files with Python's standard library.
-PDFs, images and the old binary formats (`.doc`, `.xls`) are not read; the agent gets
-their details and link. Files above `max_file_mb` are not downloaded.
+`read_file` reads as text:
+
+- PDF, page by page, with [pypdf](https://pypi.org/project/pypdf/), which ai-os brings
+  along. A scanned PDF has no text; the agent is told so.
+- Word, Excel (every sheet, tab-separated) and PowerPoint (every slide), also with
+  macros (`.docm`, `.xlsm`, `.pptm`), with Python's standard library.
+- The old `.doc`, `.xls`, `.ppt`, OpenDocument, RTF and mails (`.msg`, `.eml`): Microsoft
+  turns them into a PDF first (`/content?format=pdf`).
+- Text files (`.txt`, `.md`, `.csv`, `.json`, code, subtitles, …).
+
+A picture (PNG, JPEG, GIF, WebP, up to 5 MB) goes to the agent as the picture itself,
+so the model sees it. Other kinds give only their details and link. Files above
+`max_file_mb` are not downloaded. PDFs need an ai-os from 2026-11-26 or later.
 
 ## The connector
 
