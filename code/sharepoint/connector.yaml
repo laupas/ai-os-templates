@@ -1,0 +1,45 @@
+# SharePoint and OneDrive through Microsoft Graph, in the account of whoever the
+# turn is for. ai-os signs each user in with the connector's `oauth:` client and
+# hands the server that user's access token as AIOS_ACCESS_TOKEN; the server keeps
+# nothing.
+description: >-
+  SharePoint sites, document libraries and lists, and OneDrive, of the signed-in
+  Microsoft 365 account, through Microsoft Graph: search, browse, read Word, Excel,
+  PowerPoint and text files, upload text files, add and change list items.
+
+# Everything that writes is approved by a human.
+approval:
+  always: [upload_text_file, create_list_item, update_list_item]
+
+settings:
+  type: object
+  properties:
+    read_only:
+      type: boolean
+      title: Read only
+      default: false
+      x-locked: true
+      description: Offer only the tools that read; nothing is uploaded or changed.
+    max_results:
+      type: integer
+      title: Most results per list
+      default: 25
+      minimum: 1
+      maximum: 100
+      x-locked: true
+    max_file_mb:
+      type: integer
+      title: Largest file read
+      default: 20
+      minimum: 1
+      maximum: 100
+      x-unit: MB
+      x-locked: true
+    max_text_chars:
+      type: integer
+      title: Longest text read
+      default: 40000
+      minimum: 1000
+      maximum: 400000
+      x-unit: characters
+      description: A longer document is cut off here.

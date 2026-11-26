@@ -1,0 +1,74 @@
+description: SharePoint sites, libraries and lists, and OneDrive, of each user's own Microsoft 365 account, through Microsoft Graph
+config:
+  code: sharepoint
+  oauth:
+    authorization_endpoint: https://login.microsoftonline.com/${M365_TENANT_ID}/oauth2/v2.0/authorize
+    token_endpoint: https://login.microsoftonline.com/${M365_TENANT_ID}/oauth2/v2.0/token
+    client_id: ${M365_CLIENT_ID}
+    client_secret: ${M365_CLIENT_SECRET}
+    scopes:
+    - User.Read
+    - Sites.ReadWrite.All
+    - Files.ReadWrite.All
+    - offline_access
+enabled: true
+sign_in: per_user
+shared_fallback: false
+store:
+  title: SharePoint and OneDrive
+  category: Microsoft
+  version: "1.0.0"
+  author: ai-os templates
+  license: MIT
+  homepage: https://learn.microsoft.com/en-us/graph/api/resources/sharepoint
+  tags:
+  - microsoft
+  - sharepoint
+  - onedrive
+  - documents
+  - oauth
+  - code-connector
+  notes: |
+    A **code connector**: a small Python server that ai-os runs itself and that calls
+    Microsoft Graph with the signed-in user's own token. No Copilot license, no extra
+    container. Every user signs in with their own work account on the Connectors
+    page, so an agent sees exactly the sites and files that user may see.
+
+    It searches SharePoint and OneDrive, browses libraries, reads Word, Excel,
+    PowerPoint and text files (not PDFs), reads lists, and uploads text files and adds
+    or changes list items, each approved by a human. Installing it copies
+    `code/sharepoint/` into your configuration repository and adds the `sharepoint`
+    agent. Read the code first: it runs inside your installation.
+
+    It uses the same kind of Entra app registration as the Outlook connector; one app
+    can serve both. Set it up once:
+
+    1. In the [Entra admin center](https://entra.microsoft.com/), **App registrations,
+       New registration**: single tenant, platform *Web*, with the redirect URI
+       `https://<your ai-os address>/api/oauth/callback`
+       (on your own machine: `http://localhost:8080/api/oauth/callback`).
+    2. **API permissions, Add a permission, Microsoft Graph, Delegated**: `User.Read`,
+       `Sites.ReadWrite.All`, `Files.ReadWrite.All` and `offline_access`. **Grant
+       admin consent** if your tenant does not let users consent themselves.
+    3. **Certificates & secrets, New client secret**, and copy its *Value*.
+    4. Paste the tenant id, the client id and the secret below (the Outlook connector
+       uses the same three, so with it installed there is nothing new to type).
+
+    For an agent that only reads, set the connector's **Read only** setting; you may
+    then use `Sites.Read.All` and `Files.Read.All` instead.
+  variables:
+  - variable: M365_TENANT_ID
+    label: Entra tenant id
+    hint: 'Entra admin center, the app registration, Overview: Directory (tenant) ID.'
+    secret: false
+    required: true
+  - variable: M365_CLIENT_ID
+    label: Entra client id
+    hint: 'The app registration, Overview: Application (client) ID.'
+    secret: false
+    required: true
+  - variable: M365_CLIENT_SECRET
+    label: Entra client secret
+    hint: 'The app registration, Certificates & secrets: the value of a client secret.'
+    secret: true
+    required: true

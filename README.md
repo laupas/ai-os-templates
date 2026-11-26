@@ -6,7 +6,7 @@ Agents, connectors, triggers and a code connector for
 
 | Kind | Items |
 |---|---|
-| Connectors | Google Calendar, Gmail, Google Drive, Google Contacts (Google's own MCP servers), Outlook mail and calendar (code connector, Microsoft Graph), Microsoft 365 (Work IQ, needs Work IQ billing), Playwright browser, GitHub (read-only), Homey, Hello world (code connector) |
+| Connectors | Google Calendar, Gmail, Google Drive, Google Contacts (Google's own MCP servers), Outlook mail and calendar, SharePoint and OneDrive (code connectors, Microsoft Graph), Microsoft 365 (Work IQ, needs Work IQ billing), Playwright browser, GitHub (read-only), Homey, Hello world (code connector) |
 | Agents | calendar, contacts, inbox-triage, drive, browser, github, homey, weather, second-brain |
 | Triggers | Morning brief, Weekly inbox summary |
 
