@@ -28,6 +28,7 @@ from xml.etree import ElementTree
 
 import aiohttp
 from mcp.server.mcpserver import Image, MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 try:
     from pypdf import PdfReader
@@ -75,8 +76,9 @@ R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
 
-class GraphError(Exception):
-    """What Graph refused, in words an agent can pass on."""
+class GraphError(ToolError):
+    """What Graph refused, in words an agent can pass on. A ToolError, or the MCP
+    server keeps the words to itself and the agent sees only that the tool failed."""
 
 
 class Graph:
@@ -119,15 +121,26 @@ class Graph:
                 self._base + path, headers=headers, allow_redirects=False
             ) as response:
                 if response.status not in (301, 302, 303, 307, 308):
-                    raw = await response.content.read(limit + 1)
+                    raw = await self._read(response, limit)
                     if response.status >= 400:
                         self._answer(response.status, raw)
-                    return raw[: limit + 1]
+                    return raw
                 location = response.headers["Location"]
             async with session.get(location) as response:
                 if response.status >= 400:
                     raise GraphError(f"the download answered {response.status}")
-                return await response.content.read(limit + 1)
+                return await self._read(response, limit)
+
+    @staticmethod
+    async def _read(response: aiohttp.ClientResponse, limit: int) -> bytes:
+        """The body, up to limit + 1 bytes, so a caller can tell it was larger.
+        `content.read(n)` alone returns only what has arrived so far."""
+        data = bytearray()
+        async for chunk in response.content.iter_chunked(64 * 1024):
+            data += chunk
+            if len(data) > limit:
+                break
+        return bytes(data[: limit + 1])
 
     @staticmethod
     def _answer(status: int, raw: bytes) -> dict[str, Any]:

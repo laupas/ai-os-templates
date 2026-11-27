@@ -19,7 +19,7 @@ shared_fallback: false
 store:
   title: Outlook (mail and calendar)
   category: Microsoft
-  version: "1.0.0"
+  version: "1.0.1"
   author: ai-os templates
   license: MIT
   homepage: https://learn.microsoft.com/en-us/graph/outlook-mail-concept-overview

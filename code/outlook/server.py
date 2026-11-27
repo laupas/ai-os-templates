@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 import aiohttp
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 DEFAULTS = {"read_only": False, "max_results": 25, "max_body_chars": 20000}
 SETTINGS = DEFAULTS | json.loads(os.environ.get("AIOS_CONNECTOR_SETTINGS") or "{}")
@@ -38,8 +39,9 @@ EVENT_FIELDS = (
 )
 
 
-class GraphError(Exception):
-    """What Graph refused, in words an agent can pass on."""
+class GraphError(ToolError):
+    """What Graph refused, in words an agent can pass on. A ToolError, or the MCP
+    server keeps the words to itself and the agent sees only that the tool failed."""
 
 
 class Graph:

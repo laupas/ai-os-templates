@@ -213,3 +213,14 @@ async def _tools(settings: dict) -> list[str]:
 async def test_read_only_offers_only_the_tools_that_read() -> None:
     assert await _tools({"read_only": True}) == sorted(outlook.READING)
     assert await _tools({}) == sorted(outlook.READING + outlook.WRITING)
+
+
+async def test_the_agent_gets_the_reason_a_tool_failed() -> None:
+    params = StdioServerParameters(
+        command=sys.executable, args=[str(SERVER)], env={"PATH": os.environ["PATH"]}
+    )
+    async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
+        await session.initialize()
+        result = await session.call_tool("whoami", {})
+    assert result.is_error
+    assert "not signed in" in result.content[0].text

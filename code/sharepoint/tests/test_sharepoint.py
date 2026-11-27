@@ -277,6 +277,13 @@ async def test_a_word_file_is_downloaded_without_the_token_and_read(graph) -> No
     assert graph.download_auth is None  # the pre-signed address gets no token
 
 
+async def test_a_file_larger_than_one_chunk_arrives_whole(graph) -> None:
+    graph.file = os.urandom(1024 * 1024).hex().encode()
+    graph_ = _sp(graph)._graph
+    assert await graph_.download("/drives/d1/items/l/content", 4 * 1024 * 1024) == graph.file
+    assert len(await graph_.download("/drives/d1/items/l/content", 1000)) == 1001
+
+
 async def test_a_pdf_is_read(graph) -> None:
     graph.answers["GET /drives/d1/items/p"] = (200, {"id": "p", "name": "Policy.PDF", "size": 9})
     graph.file = PDF
@@ -411,3 +418,14 @@ async def _tools(settings: dict) -> list[str]:
 async def test_read_only_offers_only_the_tools_that_read() -> None:
     assert await _tools({"read_only": True}) == sorted(sharepoint.READING)
     assert await _tools({}) == sorted(sharepoint.READING + sharepoint.WRITING)
+
+
+async def test_the_agent_gets_the_reason_a_tool_failed() -> None:
+    params = StdioServerParameters(
+        command=sys.executable, args=[str(SERVER)], env={"PATH": os.environ["PATH"]}
+    )
+    async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
+        await session.initialize()
+        result = await session.call_tool("list_folder", {})
+    assert result.is_error
+    assert "not signed in" in result.content[0].text
