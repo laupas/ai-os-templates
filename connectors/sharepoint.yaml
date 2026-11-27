@@ -17,7 +17,7 @@ shared_fallback: false
 store:
   title: SharePoint and OneDrive
   category: Microsoft
-  version: "1.1.0"
+  version: "1.2.0"
   author: ai-os templates
   license: MIT
   homepage: https://learn.microsoft.com/en-us/graph/api/resources/sharepoint

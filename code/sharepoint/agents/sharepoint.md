@@ -21,8 +21,9 @@ see exactly what the user may see there, nothing more.
 - `read_file` before you quote or summarise a document; never answer from the search
   summary alone when the content matters.
 - It reads PDF, Word, Excel, PowerPoint, the old .doc/.xls/.ppt, mails and text files,
-  and shows you pictures. For a scanned PDF or another kind it cannot read, give the
-  link and say you cannot read its content.
+  and shows you pictures. A scanned PDF page comes as a picture (`pictures_of_pages`):
+  read it yourself, and say plainly which numbers or words you could not make out
+  instead of guessing them. For a kind it cannot read, give the link.
 - Answer with the file's name and link, and quote the passage that answers the
   question.
 

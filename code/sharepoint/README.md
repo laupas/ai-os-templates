@@ -30,7 +30,10 @@ changes it) none of these is offered.
 `read_file` reads as text:
 
 - PDF, page by page, with [pypdf](https://pypi.org/project/pypdf/), which ai-os brings
-  along. A scanned PDF has no text; the agent is told so.
+  along. A page without text (a scan) is drawn as a grayscale picture with
+  [pypdfium2](https://pypi.org/project/pypdfium2/) and goes to the model, which reads
+  it: that is the OCR, with nothing installed beside it. At most `max_scanned_pages`
+  (10) per file; the agent is told which pages it got as pictures and which not.
 - Word, Excel (every sheet, tab-separated) and PowerPoint (every slide), also with
   macros (`.docm`, `.xlsm`, `.pptm`), with Python's standard library.
 - The old `.doc`, `.xls`, `.ppt`, OpenDocument, RTF and mails (`.msg`, `.eml`): Microsoft
@@ -39,7 +42,8 @@ changes it) none of these is offered.
 
 A picture (PNG, JPEG, GIF, WebP, up to 5 MB) goes to the agent as the picture itself,
 so the model sees it. Other kinds give only their details and link. Files above
-`max_file_mb` are not downloaded. PDFs need an ai-os from 2026-11-26 or later.
+`max_file_mb` are not downloaded. PDFs need an ai-os from 2026-11-26 or later,
+scanned pages one that brings pypdfium2 along; an older one says it cannot show them.
 
 ## The connector
 

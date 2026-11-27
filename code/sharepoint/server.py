@@ -8,7 +8,9 @@ user's own account", the user's own). The server keeps nothing: no token, no fil
 Word, Excel and PowerPoint files are read as text with the standard library (they
 are zipped XML), PDFs with pypdf (which ai-os brings along). The old Office formats,
 OpenDocument, RTF and mails are turned into a PDF by Microsoft first. Pictures go to
-the agent as they are, so the model looks at them itself.
+the agent as they are, so the model looks at them itself; so do the pages of a PDF
+that carry no text (scans), drawn with pypdfium2: the model reads them, which is the
+OCR.
 """
 
 import asyncio
@@ -16,8 +18,10 @@ import io
 import json
 import os
 import re
+import struct
 import sys
 import zipfile
+import zlib
 from typing import Any, Literal
 from urllib.parse import quote, urlsplit
 from xml.etree import ElementTree
@@ -30,7 +34,19 @@ try:
 except ImportError:  # an ai-os from before it brought pypdf along
     PdfReader = None  # type: ignore[assignment, misc]
 
-DEFAULTS = {"read_only": False, "max_results": 25, "max_file_mb": 20, "max_text_chars": 40000}
+try:
+    import pypdfium2
+    import pypdfium2.raw as pdfium_raw
+except ImportError:  # an ai-os from before it brought pypdfium2 along
+    pypdfium2 = None  # type: ignore[assignment]
+
+DEFAULTS = {
+    "read_only": False,
+    "max_results": 25,
+    "max_file_mb": 20,
+    "max_text_chars": 40000,
+    "max_scanned_pages": 10,
+}
 SETTINGS = DEFAULTS | json.loads(os.environ.get("AIOS_CONNECTOR_SETTINGS") or "{}")
 # Only the tests set this: ai-os passes a code connector nothing it does not declare.
 GRAPH = os.environ.get("SHAREPOINT_GRAPH_URL") or "https://graph.microsoft.com/v1.0"
@@ -47,6 +63,8 @@ CONVERTED_TYPES = (
 IMAGE_TYPES = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg", ".gif": "gif", ".webp": "webp"}
 IMAGE_MB = 5
 """The largest picture the model takes, in MB."""
+PAGE_PIXELS = 1568
+"""The long edge of a scanned page as a picture: the most the model looks at in full."""
 UNZIPPED_LIMIT = 200 * 1024 * 1024
 """The most an Office file may unpack to: a guard against zip bombs."""
 
@@ -249,17 +267,89 @@ def xlsx_text(content: bytes) -> str:
     return "\n\n".join(parts)
 
 
-def pdf_text(content: bytes) -> str:
+def pdf_pages(content: bytes) -> list[str]:
+    """The text of each page."""
     if PdfReader is None:
         raise GraphError("this ai-os cannot read PDFs yet: update it")
     reader = PdfReader(io.BytesIO(content))
     if reader.is_encrypted and not reader.decrypt(""):
         raise GraphError("the PDF is protected by a password")
-    pages = [
-        f"--- Page {number}\n{(page.extract_text() or '').strip()}"
-        for number, page in enumerate(reader.pages, start=1)
-    ]
-    return "\n\n".join(pages)
+    return [(page.extract_text() or "").strip() for page in reader.pages]
+
+
+def scanned(pages: list[str]) -> list[int]:
+    """The numbers of the pages without any text: scans."""
+    return [n for n, text in enumerate(pages, start=1) if not text]
+
+
+def png(width: int, height: int, stride: int, pixels: bytes) -> bytes:
+    """A grayscale PNG, with the standard library only."""
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body))
+
+    rows = b"".join(b"\0" + pixels[y * stride : y * stride + width] for y in range(height))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(rows, 6))
+        + chunk(b"IEND", b"")
+    )
+
+
+def page_pictures(content: bytes, numbers: list[int]) -> list[bytes]:
+    """The given pages as grayscale PNGs, their long edge PAGE_PIXELS, or half that
+    where a page would be larger than the model takes."""
+    document = pypdfium2.PdfDocument(content)
+    try:
+        pictures = []
+        for number in numbers:
+            page = document[number - 1]
+            scale = PAGE_PIXELS / max(page.get_size())
+            for factor in (1.0, 0.5):
+                bitmap = page.render(
+                    scale=scale * factor,
+                    grayscale=True,
+                    force_bitmap_format=pdfium_raw.FPDFBitmap_Gray,
+                )
+                picture = png(bitmap.width, bitmap.height, bitmap.stride, bytes(bitmap.buffer))
+                if len(picture) <= IMAGE_MB * 1024 * 1024:
+                    break
+            pictures.append(picture)
+        return pictures
+    finally:
+        document.close()
+
+
+def read_pdf(name: str, content: bytes) -> tuple[str, dict[str, Any], list[bytes]]:
+    """A PDF's text, what to tell about its scanned pages, and those pages as
+    pictures, up to `max_scanned_pages`."""
+    try:
+        pages = pdf_pages(content)
+        numbers = scanned(pages)
+        most = int(SETTINGS["max_scanned_pages"])
+        shown = numbers[:most] if pypdfium2 is not None else []
+        pictures = page_pictures(content, shown) if shown else []
+    except GraphError:
+        raise
+    except Exception as exc:  # a broken or odd file must not end the session
+        raise GraphError(f"{name} could not be read: {exc}") from exc
+    text = "\n\n".join(
+        f"--- Page {n}\n" + ("[scanned: its picture follows]" if n in shown else t)
+        for n, t in enumerate(pages, start=1)
+    ).strip()
+    notes: dict[str, Any] = {}
+    if shown:
+        notes["pictures_of_pages"] = shown
+    if hidden := [n for n in numbers if n not in shown]:
+        notes["scanned_pages_not_shown"] = hidden
+        notes["why"] = (
+            "this ai-os cannot show scanned pages yet: update it"
+            if pypdfium2 is None
+            else f"only the first {most} scanned pages are shown"
+        )
+    return text, notes, pictures
 
 
 def text_of(name: str, content: bytes) -> str | None:
@@ -272,8 +362,6 @@ def text_of(name: str, content: bytes) -> str | None:
             return pptx_text(content)
         if lower.endswith((".xlsx", ".xlsm")):
             return xlsx_text(content)
-        if lower.endswith((".pdf", *CONVERTED_TYPES)):
-            return pdf_text(content)
     except GraphError:
         raise
     except Exception as exc:  # a broken or odd file must not end the session
@@ -374,8 +462,9 @@ class SharePoint:
         """A file's content. As text: PDF (page by page), Word, Excel (every sheet,
         tab-separated), PowerPoint (every slide), the old .doc/.xls/.ppt, OpenDocument,
         RTF, mails (.msg, .eml) and plain text files. A picture (PNG, JPEG, GIF, WebP)
-        comes as the picture itself. Other kinds give only their details and link. A
-        scanned PDF has no text: say so, and give the link."""
+        comes as the picture itself, and so does each scanned page of a PDF (listed in
+        `pictures_of_pages`): read them yourself, and say what you could not make out.
+        Other kinds give only their details and link."""
         path = f"/drives/{_id(drive_id)}/items/{_id(item_id)}"
         item = await self._graph.call("GET", path)
         row = _item_row(item)
@@ -400,12 +489,16 @@ class SharePoint:
             return [_json({**row, "text": None, "why": f"larger than {mb} MB"})]
         if picture:
             return [_json(row), Image(data=content, format=picture)]
+        if lower.endswith((".pdf", *CONVERTED_TYPES)):
+            text, notes, pages = await asyncio.to_thread(read_pdf, name, content)
+            if not pages and not re.sub(r"--- Page \d+", "", text).strip():
+                notes.setdefault("why", "the PDF has no text: scanned pages")
+                return [_json({**row, "text": None, **notes})]
+            return [
+                _json({**row, "text": _cut(text), **notes}),
+                *(Image(data=p, format="png") for p in pages),
+            ]
         text = (await asyncio.to_thread(text_of, name, content) or "").strip()
-        if (
-            lower.endswith((".pdf", *CONVERTED_TYPES))
-            and not re.sub(r"--- Page \d+", "", text).strip()
-        ):
-            return [_json({**row, "text": None, "why": "the PDF has no text: scanned pages"})]
         return [_json({**row, "text": _cut(text)})]
 
     async def list_lists(self, site_id: str) -> str:

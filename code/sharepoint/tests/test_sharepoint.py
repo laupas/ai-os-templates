@@ -5,8 +5,10 @@ import base64
 import io
 import json
 import os
+import struct
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 
 import pytest
@@ -93,12 +95,53 @@ PDF = _pdf("Quality policy", "Second page")
 
 
 def test_a_pdf_is_read_page_by_page() -> None:
-    assert sharepoint.pdf_text(PDF) == "--- Page 1\nQuality policy\n\n--- Page 2\nSecond page"
+    text, notes, pictures = sharepoint.read_pdf("x.pdf", PDF)
+    assert text == "--- Page 1\nQuality policy\n\n--- Page 2\nSecond page"
+    assert notes == {} and pictures == []
 
 
 def test_a_broken_pdf_is_an_error_not_a_crash() -> None:
     with pytest.raises(sharepoint.GraphError, match="could not be read"):
-        sharepoint.text_of("x.pdf", b"%PDF-1.4 nothing")
+        sharepoint.read_pdf("x.pdf", b"%PDF-1.4 nothing")
+
+
+def _png_size(picture: bytes) -> tuple[int, int, int]:
+    """Width, height and colour type of a PNG, after checking it decodes."""
+    assert picture.startswith(b"\x89PNG\r\n\x1a\n")
+    width, height, depth, colour = struct.unpack(">IIBB", picture[16:26])
+    idat = picture.index(b"IDAT")
+    (length,) = struct.unpack(">I", picture[idat - 4 : idat])
+    assert len(zlib.decompress(picture[idat + 4 : idat + 4 + length])) == (width + 1) * height
+    return width, height, colour
+
+
+def test_a_scanned_page_becomes_a_grayscale_picture_of_the_page() -> None:
+    text, notes, pictures = sharepoint.read_pdf("x.pdf", _pdf("Cover", "", "End"))
+    assert text == (
+        "--- Page 1\nCover\n\n--- Page 2\n[scanned: its picture follows]\n\n--- Page 3\nEnd"
+    )
+    assert notes == {"pictures_of_pages": [2]}
+    (picture,) = pictures
+    width, height, colour = _png_size(picture)
+    assert height == sharepoint.PAGE_PIXELS and width == round(612 * 1568 / 792)
+    assert colour == 0
+
+
+def test_scanned_pages_beyond_the_setting_are_named_not_shown(monkeypatch) -> None:
+    monkeypatch.setitem(sharepoint.SETTINGS, "max_scanned_pages", 1)
+    _, notes, pictures = sharepoint.read_pdf("x.pdf", _pdf("", "", ""))
+    assert len(pictures) == 1
+    assert notes["pictures_of_pages"] == [1]
+    assert notes["scanned_pages_not_shown"] == [2, 3]
+    assert "first 1" in notes["why"]
+
+
+def test_without_pypdfium2_scanned_pages_are_named(monkeypatch) -> None:
+    monkeypatch.setattr(sharepoint, "pypdfium2", None)
+    _, notes, pictures = sharepoint.read_pdf("x.pdf", _pdf("Cover", ""))
+    assert pictures == []
+    assert notes == {"scanned_pages_not_shown": [2], "why": notes["why"]}
+    assert "update it" in notes["why"]
 
 
 def test_word_is_read_paragraph_by_paragraph() -> None:
@@ -241,11 +284,21 @@ async def test_a_pdf_is_read(graph) -> None:
     assert graph.requests[1]["query"] == {}
 
 
-async def test_a_scanned_pdf_says_it_has_no_text(graph) -> None:
+async def test_a_scanned_pdf_comes_as_pictures_of_its_pages(graph) -> None:
+    graph.answers["GET /drives/d1/items/s"] = (200, {"name": "Scan.pdf", "size": 9})
+    graph.file = _pdf("", "")
+    row, *pages = await _sp(graph).read_file("d1", "s")
+    assert json.loads(row)["pictures_of_pages"] == [1, 2]
+    assert [p.to_image_content().mime_type for p in pages] == ["image/png", "image/png"]
+    _png_size(base64.b64decode(pages[0].to_image_content().data))
+
+
+async def test_a_scanned_pdf_says_so_when_it_shows_no_page(graph, monkeypatch) -> None:
+    monkeypatch.setitem(sharepoint.SETTINGS, "max_scanned_pages", 0)
     graph.answers["GET /drives/d1/items/s"] = (200, {"name": "Scan.pdf", "size": 9})
     graph.file = _pdf("")
     answer = await _read(graph, "s")
-    assert answer["text"] is None and "scanned" in answer["why"]
+    assert answer["text"] is None and answer["scanned_pages_not_shown"] == [1]
 
 
 async def test_an_old_word_file_is_turned_into_a_pdf_by_microsoft(graph) -> None:

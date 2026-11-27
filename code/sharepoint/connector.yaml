@@ -4,9 +4,9 @@
 # nothing.
 description: >-
   SharePoint sites, document libraries and lists, and OneDrive, of the signed-in
-  Microsoft 365 account, through Microsoft Graph: search, browse, read PDF, Word,
-  Excel, PowerPoint, text files and pictures, upload text files, move and rename files and folders,
-  add and change list items.
+  Microsoft 365 account, through Microsoft Graph: search, browse, read PDF (scanned
+  pages too), Word, Excel, PowerPoint, text files and pictures, upload text files, move
+  and rename files and folders, add and change list items.
 
 # Everything that writes is approved by a human.
 approval:
@@ -44,3 +44,13 @@ settings:
       maximum: 400000
       x-unit: characters
       description: A longer document is cut off here.
+    max_scanned_pages:
+      type: integer
+      title: Most scanned pages shown
+      default: 10
+      minimum: 0
+      maximum: 50
+      x-locked: true
+      description: >-
+        Pages of a PDF without text go to the model as pictures, which it reads; each
+        costs about as much as 2,000 words of text. 0 shows none.
